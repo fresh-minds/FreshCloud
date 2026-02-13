@@ -1,0 +1,131 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: obs-kube-prometheus-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: "58.*"
+    helm:
+      releaseName: kube-prometheus-stack
+      values: |
+        defaultRules:
+          create: true
+
+        alertmanager:
+          enabled: true
+          alertmanagerSpec:
+            replicas: 1
+            retention: 120h
+            storage:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: ["ReadWriteOnce"]
+                  storageClassName: longhorn
+                  resources:
+                    requests:
+                      storage: 5Gi
+
+        grafana:
+          enabled: true
+          defaultDashboardsEnabled: true
+          admin:
+            existingSecret: grafana-admin-credentials
+            userKey: admin-user
+            passwordKey: admin-password
+          service:
+            type: ClusterIP
+          sidecar:
+            dashboards:
+              enabled: true
+              searchNamespace: observability
+          additionalDataSources:
+            - name: Loki
+              type: loki
+              uid: loki
+              access: proxy
+              url: http://loki.observability.svc.cluster.local:3100
+              isDefault: false
+
+        prometheus:
+          prometheusSpec:
+            replicas: 1
+            retention: 15d
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: ["ReadWriteOnce"]
+                  storageClassName: longhorn
+                  resources:
+                    requests:
+                      storage: 50Gi
+
+        additionalPrometheusRulesMap:
+          freshcloud-high-signal:
+            groups:
+              - name: freshcloud.high-signal
+                rules:
+                  - alert: KubernetesAPIDown
+                    expr: sum(up{job=~".*apiserver.*"}) < 1
+                    for: 5m
+                    labels:
+                      severity: critical
+                      team: platform
+                    annotations:
+                      summary: Kubernetes API server is down
+                      description: No kube-apiserver target has been reachable for 5 minutes.
+
+                  - alert: KubernetesNodeNotReady
+                    expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+                    for: 10m
+                    labels:
+                      severity: critical
+                      team: platform
+                    annotations:
+                      summary: Kubernetes node is NotReady
+                      description: Node {{ $labels.node }} has been NotReady for more than 10 minutes.
+
+                  - alert: KubernetesNodeDiskPressure
+                    expr: kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+                    for: 10m
+                    labels:
+                      severity: warning
+                      team: platform
+                    annotations:
+                      summary: Kubernetes node reports disk pressure
+                      description: Node {{ $labels.node }} reports DiskPressure for more than 10 minutes.
+
+                  - alert: CertificateExpirySoon
+                    expr: (certmanager_certificate_expiration_timestamp_seconds - time()) < 604800
+                    for: 15m
+                    labels:
+                      severity: warning
+                      team: platform
+                    annotations:
+                      summary: TLS certificate expires in less than 7 days
+                      description: Certificate {{ $labels.name }} in namespace {{ $labels.namespace }} is close to expiry.
+
+                  - alert: BackupFailure
+                    expr: increase(kube_job_status_failed{job_name=~".*(backup|restore|snapshot|wal).*"}[1h]) > 0
+                    for: 10m
+                    labels:
+                      severity: critical
+                      team: data
+                    annotations:
+                      summary: Backup related job has failed
+                      description: At least one backup/restore/snapshot job failed in the last hour.
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

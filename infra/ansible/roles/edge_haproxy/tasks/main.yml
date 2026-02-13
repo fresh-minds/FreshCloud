@@ -1,0 +1,47 @@
+- name: Install HAProxy and Keepalived
+  ansible.builtin.apt:
+    name:
+      - haproxy
+      - keepalived
+    state: present
+    update_cache: true
+  when: edge_lb_enabled | bool
+
+- name: Render HAProxy configuration
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: '0644'
+  when: edge_lb_enabled | bool
+  notify: Restart haproxy
+
+- name: Render Keepalived configuration
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: edge_lb_enabled | bool
+  notify: Restart keepalived
+
+- name: Enable and start HAProxy
+  ansible.builtin.service:
+    name: haproxy
+    enabled: true
+    state: started
+  when: edge_lb_enabled | bool
+
+- name: Enable and start Keepalived
+  ansible.builtin.service:
+    name: keepalived
+    enabled: true
+    state: started
+  when: edge_lb_enabled | bool
+
+- name: Emit reminder when edge LB is disabled
+  ansible.builtin.debug:
+    msg: "Edge LB role skipped because edge_lb_enabled=false."
+  when: not edge_lb_enabled | bool

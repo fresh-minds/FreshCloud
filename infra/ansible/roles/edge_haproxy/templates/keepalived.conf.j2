@@ -1,0 +1,25 @@
+vrrp_instance VI_1 {
+  state {{ edge_state }}
+  interface {{ edge_private_interface }}
+  virtual_router_id {{ edge_virtual_router_id }}
+  priority {{ edge_priority }}
+  advert_int 1
+
+  authentication {
+    auth_type PASS
+    auth_pass {{ edge_keepalived_auth_pass }}
+  }
+
+{% if edge_peer_ips | length > 0 %}
+  unicast_src_ip {{ private_ip }}
+  unicast_peer {
+{% for peer in edge_peer_ips %}
+    {{ peer }}
+{% endfor %}
+  }
+{% endif %}
+
+  virtual_ipaddress {
+    {{ edge_vip_public_ip }}/32
+  }
+}

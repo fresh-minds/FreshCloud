@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: freshcloud-ui-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: freshcloud-ui
+  source:
+    repoURL: https://github.com/<org>/FreshCloud.git
+    targetRevision: main
+    path: frontend/deploy/overlays/prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

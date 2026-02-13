@@ -1,0 +1,10 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ingress-nginx
+  namespace: argocd
+  labels:
+    freshcloud.io/environment: dev
+spec:
+  source:
+    targetRevision: 4.11.3

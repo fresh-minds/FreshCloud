@@ -1,0 +1,32 @@
+global
+  log /dev/log local0
+  log /dev/log local1 notice
+  maxconn 4096
+
+defaults
+  log global
+  mode tcp
+  option tcplog
+  timeout connect 10s
+  timeout client 60s
+  timeout server 60s
+
+frontend ingress_http
+  bind *:80
+  default_backend k8s_http
+
+frontend ingress_https
+  bind *:443
+  default_backend k8s_https
+
+backend k8s_http
+  balance roundrobin
+{% for node in haproxy_backend_nodes %}
+  server {{ node.name }} {{ node.address }}:{{ node.http_port }} check
+{% endfor %}
+
+backend k8s_https
+  balance roundrobin
+{% for node in haproxy_backend_nodes %}
+  server {{ node.name }} {{ node.address }}:{{ node.https_port }} check
+{% endfor %}

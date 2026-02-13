@@ -1,0 +1,52 @@
+project      = "freshcloud"
+env          = "stage"
+region       = "eu-west-3"
+private_cidr = "10.50.0.0/24"
+
+public_ip_map = {
+  PUB_IP_1 = "198.51.100.20"
+  PUB_IP_2 = "198.51.100.21"
+  PUB_IP_3 = "198.51.100.22"
+  PUB_IP_4 = "198.51.100.23"
+}
+
+domain_name         = "example.com"
+ingress_record_name = "stage-apps.example.com."
+enable_dns_records  = false
+
+enable_instance_creation = false
+image_id                 = "UBUNTU_22_04_64BIT"
+# ssh_public_key         = "ssh-ed25519 AAAA..."
+
+admin_cidrs    = ["203.0.113.0/24"]
+wireguard_cidr = "10.99.0.0/24"
+
+host_plan = {
+  "fc-stage-euw1-k8s-01" = {
+    role                   = "k8s"
+    private_ip             = "10.50.0.10"
+    size_profile           = "8vcpu-32gb"
+    flavor                 = "lsw.m5a.2xlarge"
+    root_disk_size_gb      = 100
+    root_disk_storage_type = "CENTRAL"
+  }
+  "fc-stage-euw1-k8s-02" = {
+    role                   = "k8s"
+    private_ip             = "10.50.0.11"
+    size_profile           = "8vcpu-32gb"
+    flavor                 = "lsw.m5a.2xlarge"
+    root_disk_size_gb      = 100
+    root_disk_storage_type = "CENTRAL"
+  }
+  "fc-stage-euw1-k8s-03" = {
+    role                   = "k8s"
+    private_ip             = "10.50.0.12"
+    size_profile           = "8vcpu-32gb"
+    flavor                 = "lsw.m5a.2xlarge"
+    root_disk_size_gb      = 100
+    root_disk_storage_type = "CENTRAL"
+  }
+}
+
+manual_network_required = []
+manual_firewall_policies = {}

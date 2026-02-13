@@ -1,0 +1,84 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: minio-backup
+  namespace: data-services
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
+spec:
+  schedule: "15 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: minio-backup
+              image: docker.io/bitnami/minio-client:2025.7.21-debian-12-r2
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/bash
+                - -ec
+              args:
+                - |
+                  set -euo pipefail
+
+                  run_id="$(date -u +%Y%m%dT%H%M%SZ)"
+                  source_endpoint="http://minio.data-services.svc.cluster.local:9000"
+
+                  mc alias set source "${source_endpoint}" "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}"
+                  mc alias set backup "${BACKUP_ENDPOINT}" "${BACKUP_ACCESS_KEY_ID}" "${BACKUP_SECRET_ACCESS_KEY}"
+                  mc mb --ignore-existing "backup/${BACKUP_BUCKET}"
+
+                  # Snapshot-style backup for point-in-time restores
+                  mc mirror --overwrite \
+                    "source/" \
+                    "backup/${BACKUP_BUCKET}/${BACKUP_PREFIX}/snapshots/${run_id}/"
+
+                  # A mutable "latest" pointer for operational restores
+                  mc mirror --overwrite --remove \
+                    "source/" \
+                    "backup/${BACKUP_BUCKET}/${BACKUP_PREFIX}/latest/"
+
+                  printf "%s\n" "${run_id}" | \
+                    mc pipe "backup/${BACKUP_BUCKET}/${BACKUP_PREFIX}/latest/_meta/last-successful-run.txt"
+              env:
+                - name: MINIO_ROOT_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-root-credentials
+                      key: root-user
+                - name: MINIO_ROOT_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-root-credentials
+                      key: root-password
+                - name: BACKUP_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-backup-s3
+                      key: ACCESS_KEY_ID
+                - name: BACKUP_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-backup-s3
+                      key: ACCESS_SECRET_ACCESS_KEY
+                - name: BACKUP_ENDPOINT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: minio-backup-config
+                      key: backupEndpoint
+                - name: BACKUP_BUCKET
+                  valueFrom:
+                    configMapKeyRef:
+                      name: minio-backup-config
+                      key: backupBucket
+                - name: BACKUP_PREFIX
+                  valueFrom:
+                    configMapKeyRef:
+                      name: minio-backup-config
+                      key: backupPrefix

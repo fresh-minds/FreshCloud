@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-baseline-stage
+  namespace: argocd
+  labels:
+    freshcloud.io/environment: stage
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example/freshcloud.git
+    targetRevision: main
+    path: gitops/clusters/stage
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

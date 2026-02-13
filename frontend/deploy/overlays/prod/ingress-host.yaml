@@ -1,0 +1,12 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: freshcloud-ui
+  namespace: freshcloud-ui
+spec:
+  tls:
+    - hosts:
+        - ui.freshcloud.local
+      secretName: freshcloud-ui-tls
+  rules:
+    - host: ui.freshcloud.local

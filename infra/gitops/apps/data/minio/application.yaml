@@ -1,0 +1,66 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: minio
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: data-services
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: minio
+    targetRevision: 17.0.23
+    helm:
+      values: |
+        fullnameOverride: minio
+        mode: distributed
+        statefulset:
+          replicaCount: 4
+          zones: 1
+          drivesPerNode: 1
+        auth:
+          existingSecret: minio-root-credentials
+          rootUserSecretKey: root-user
+          rootPasswordSecretKey: root-password
+        persistence:
+          enabled: true
+          storageClass: longhorn
+          size: 500Gi
+        ingress:
+          enabled: true
+          ingressClassName: nginx
+          hostname: minio.freshcloud.example.com
+          path: /
+          pathType: Prefix
+          tls: true
+          annotations:
+            cert-manager.io/cluster-issuer: letsencrypt-prod
+        metrics:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+        networkPolicy:
+          enabled: true
+          allowExternal: true
+        provisioning:
+          enabled: true
+          buckets:
+            - name: app-data
+              versioning: Versioned
+            - name: ml-artifacts
+              versioning: Versioned
+            - name: restore-validation
+              versioning: Versioned
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

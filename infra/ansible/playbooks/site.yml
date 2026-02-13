@@ -1,0 +1,4 @@
+- import_playbook: base-hardening.yml
+- import_playbook: access-wireguard.yml
+- import_playbook: edge-lb.yml
+- import_playbook: rke2-prereqs.yml

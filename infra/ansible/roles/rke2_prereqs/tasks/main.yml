@@ -1,0 +1,46 @@
+- name: Install required packages for Kubernetes nodes
+  ansible.builtin.apt:
+    name: "{{ rke2_required_packages }}"
+    state: present
+    update_cache: true
+
+- name: Configure kernel modules file
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/rke2.conf
+    content: |
+      {% for module in rke2_kernel_modules %}
+      {{ module }}
+      {% endfor %}
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Load required kernel modules
+  ansible.builtin.command: "modprobe {{ item }}"
+  loop: "{{ rke2_kernel_modules }}"
+  changed_when: false
+
+- name: Configure sysctl settings for Kubernetes
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-rke2.conf
+    content: |
+      {% for key, value in rke2_sysctl.items() %}
+      {{ key }} = {{ value }}
+      {% endfor %}
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Apply sysctl settings
+  ansible.builtin.command: sysctl --system
+  changed_when: false
+
+- name: Disable swap runtime
+  ansible.builtin.command: swapoff -a
+  changed_when: false
+
+- name: Disable swap persistently in fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^(.*\s+swap\s+.*)$'
+    replace: '# \1'

@@ -1,0 +1,5 @@
+- name: Configure RKE2 prerequisites
+  hosts: k8s
+  become: true
+  roles:
+    - role: rke2_prereqs

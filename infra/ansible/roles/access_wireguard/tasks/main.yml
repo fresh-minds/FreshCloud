@@ -1,0 +1,36 @@
+- name: Install WireGuard package
+  ansible.builtin.apt:
+    name: wireguard
+    state: present
+    update_cache: true
+  when: wireguard_enabled | bool
+
+- name: Ensure WireGuard config directory exists
+  ansible.builtin.file:
+    path: /etc/wireguard
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  when: wireguard_enabled | bool
+
+- name: Render WireGuard server config
+  ansible.builtin.template:
+    src: wg0.conf.j2
+    dest: "/etc/wireguard/{{ wireguard_interface }}.conf"
+    owner: root
+    group: root
+    mode: '0600'
+  when: wireguard_enabled | bool
+
+- name: Enable and start WireGuard
+  ansible.builtin.service:
+    name: "wg-quick@{{ wireguard_interface }}"
+    enabled: true
+    state: started
+  when: wireguard_enabled | bool
+
+- name: Emit reminder when WireGuard is disabled
+  ansible.builtin.debug:
+    msg: "WireGuard role skipped because wireguard_enabled=false."
+  when: not wireguard_enabled | bool

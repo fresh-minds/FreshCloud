@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-backup-config
+  namespace: data-services
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+data:
+  backupEndpoint: https://s3.nl-ams-1.leaseweb.net
+  backupBucket: freshcloud-backups
+  backupPrefix: minio/prod

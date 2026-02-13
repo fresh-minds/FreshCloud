@@ -1,0 +1,19 @@
+# Single-node K3s config template for Raspberry Pi 5.
+# Copy to /etc/rancher/k3s/config.yaml before installing K3s.
+write-kubeconfig-mode: "0640"
+disable:
+  - traefik
+  - servicelb
+flannel-backend: "vxlan"
+cluster-cidr: "10.42.0.0/16"
+service-cidr: "10.43.0.0/16"
+node-ip: "192.168.1.50"
+node-external-ip: "100.100.100.100"
+tls-san:
+  - "k8s-pi.home.arpa"
+  - "k8s-pi.tailnet-name.ts.net"
+etcd-snapshot-schedule-cron: "0 */6 * * *"
+etcd-snapshot-retention: 8
+kubelet-arg:
+  - "max-pods=110"
+  - "eviction-hard=memory.available<200Mi,nodefs.available<10%"

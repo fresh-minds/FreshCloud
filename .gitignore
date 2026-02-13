@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Local secrets and runtime config
+scripts/bootstrap/bootstrap.env
+scripts/pi-bootstrap/pi.env
+scripts/backup/backup.env
+
+# Local backup artifacts
+*.dump

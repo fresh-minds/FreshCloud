@@ -1,0 +1,9 @@
+base_packages:
+  - curl
+  - jq
+  - vim
+  - chrony
+  - fail2ban
+
+wireguard_enabled: false
+edge_lb_enabled: false

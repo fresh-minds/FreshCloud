@@ -1,0 +1,52 @@
+project      = "freshcloud"
+env          = "prod"
+region       = "eu-west-3"
+private_cidr = "10.60.0.0/24"
+
+public_ip_map = {
+  PUB_IP_1 = "198.51.100.30"
+  PUB_IP_2 = "198.51.100.31"
+  PUB_IP_3 = "198.51.100.32"
+  PUB_IP_4 = "198.51.100.33"
+}
+
+domain_name         = "example.com"
+ingress_record_name = "apps.example.com."
+enable_dns_records  = false
+
+enable_instance_creation = false
+image_id                 = "UBUNTU_22_04_64BIT"
+# ssh_public_key         = "ssh-ed25519 AAAA..."
+
+admin_cidrs    = ["203.0.113.0/24"]
+wireguard_cidr = "10.99.0.0/24"
+
+host_plan = {
+  "fc-prod-euw1-k8s-01" = {
+    role                   = "k8s"
+    private_ip             = "10.60.0.10"
+    size_profile           = "8vcpu-32gb"
+    flavor                 = "lsw.m5a.2xlarge"
+    root_disk_size_gb      = 100
+    root_disk_storage_type = "CENTRAL"
+  }
+  "fc-prod-euw1-k8s-02" = {
+    role                   = "k8s"
+    private_ip             = "10.60.0.11"
+    size_profile           = "8vcpu-32gb"
+    flavor                 = "lsw.m5a.2xlarge"
+    root_disk_size_gb      = 100
+    root_disk_storage_type = "CENTRAL"
+  }
+  "fc-prod-euw1-k8s-03" = {
+    role                   = "k8s"
+    private_ip             = "10.60.0.12"
+    size_profile           = "8vcpu-32gb"
+    flavor                 = "lsw.m5a.2xlarge"
+    root_disk_size_gb      = 100
+    root_disk_storage_type = "CENTRAL"
+  }
+}
+
+manual_network_required = []
+manual_firewall_policies = {}

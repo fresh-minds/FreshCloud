@@ -1,0 +1,39 @@
+base_packages:
+  - curl
+  - jq
+  - vim
+  - chrony
+  - fail2ban
+
+ssh_password_authentication: "no"
+ssh_permit_root_login: "no"
+ssh_allowed_users:
+  - ubuntu
+
+wireguard_enabled: false
+wireguard_interface: wg0
+wireguard_address: 10.99.0.1/24
+wireguard_listen_port: 51820
+wireguard_private_key: "REPLACE_ME"
+wireguard_peers: []
+
+edge_lb_enabled: false
+edge_vip_public_ip: "REPLACE_ME_INGRESS_VIP"
+edge_private_interface: eth1
+edge_virtual_router_id: 42
+edge_keepalived_auth_pass: "REPLACE_ME"
+edge_peer_ips: []
+
+haproxy_backend_nodes:
+  - name: fc-mvp-euw1-k8s-01
+    address: 10.40.0.10
+    http_port: 30080
+    https_port: 30443
+  - name: fc-mvp-euw1-k8s-02
+    address: 10.40.0.11
+    http_port: 30080
+    https_port: 30443
+  - name: fc-mvp-euw1-k8s-03
+    address: 10.40.0.12
+    http_port: 30080
+    https_port: 30443

@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: freshcloud-ui
+  namespace: freshcloud-ui
+  labels:
+    app.kubernetes.io/name: freshcloud-ui
+    app.kubernetes.io/part-of: freshcloud
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: freshcloud-ui
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: freshcloud-ui
+        app.kubernetes.io/part-of: freshcloud
+    spec:
+      containers:
+        - name: dashboard
+          image: ghcr.io/freshcloud/freshcloud-ui:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: 30m
+              memory: 40Mi
+            limits:
+              cpu: 250m
+              memory: 120Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20

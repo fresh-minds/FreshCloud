@@ -1,0 +1,5 @@
+- name: Configure bastion and WireGuard
+  hosts: access
+  become: true
+  roles:
+    - role: access_wireguard

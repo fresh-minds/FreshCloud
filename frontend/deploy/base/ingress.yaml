@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: freshcloud-ui
+  namespace: freshcloud-ui
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - freshcloud.local
+      secretName: freshcloud-ui-tls
+  rules:
+    - host: freshcloud.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: freshcloud-ui
+                port:
+                  number: 80

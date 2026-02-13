@@ -1,0 +1,57 @@
+token: "{{ rke2_token }}"
+cni:
+  - "{{ rke2_cni }}"
+write-kubeconfig-mode: "0640"
+cluster-cidr: "{{ rke2_cluster_cidr }}"
+service-cidr: "{{ rke2_service_cidr }}"
+etcd-expose-metrics: true
+disable:
+{% for component in rke2_disable_components %}
+  - "{{ component }}"
+{% endfor %}
+{% if inventory_hostname == groups['rke2_servers'][0] %}
+cluster-init: true
+{% else %}
+server: "https://{{ hostvars[groups['rke2_servers'][0]].ansible_host }}:9345"
+{% endif %}
+{% set combined_labels = [] %}
+{% if rke2_node_labels_default is defined %}
+{%   for label in rke2_node_labels_default %}
+{%     set _ = combined_labels.append(label) %}
+{%   endfor %}
+{% endif %}
+{% if hostvars[inventory_hostname].node_labels is defined and hostvars[inventory_hostname].node_labels | length > 0 %}
+{%   for label in hostvars[inventory_hostname].node_labels.split(',') %}
+{%     set cleaned = label | trim %}
+{%     if cleaned | length > 0 %}
+{%       set _ = combined_labels.append(cleaned) %}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+{% if combined_labels | length > 0 %}
+node-label:
+{%   for label in combined_labels | unique %}
+  - "{{ label }}"
+{%   endfor %}
+{% endif %}
+{% set taints = [] %}
+{% if hostvars[inventory_hostname].node_taints is defined and hostvars[inventory_hostname].node_taints | length > 0 %}
+{%   for taint in hostvars[inventory_hostname].node_taints.split(',') %}
+{%     set cleaned_taint = taint | trim %}
+{%     if cleaned_taint | length > 0 %}
+{%       set _ = taints.append(cleaned_taint) %}
+{%     endif %}
+{%   endfor %}
+{% endif %}
+{% if taints | length > 0 %}
+node-taint:
+{%   for taint in taints %}
+  - "{{ taint }}"
+{%   endfor %}
+{% endif %}
+{% if rke2_tls_sans_list is defined and rke2_tls_sans_list | length > 0 %}
+tls-san:
+{%   for san in rke2_tls_sans_list | unique %}
+  - "{{ san }}"
+{%   endfor %}
+{% endif %}

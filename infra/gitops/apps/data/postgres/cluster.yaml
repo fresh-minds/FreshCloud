@@ -1,0 +1,60 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: freshcloud-pg
+  namespace: data-services
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  instances: 3
+  primaryUpdateStrategy: unsupervised
+  imageName: ghcr.io/cloudnative-pg/postgresql:16
+
+  postgresql:
+    parameters:
+      max_connections: "300"
+      shared_buffers: "256MB"
+
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+  storage:
+    storageClass: longhorn
+    size: 100Gi
+
+  superuserSecret:
+    name: pg-superuser
+
+  bootstrap:
+    initdb:
+      database: app
+      owner: app_user
+      secret:
+        name: pg-app-user
+
+  backup:
+    barmanObjectStore:
+      destinationPath: s3://freshcloud-backups/postgres/prod
+      endpointURL: https://s3.nl-ams-1.leaseweb.net
+      s3Credentials:
+        accessKeyId:
+          name: pg-backup-s3
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: pg-backup-s3
+          key: ACCESS_SECRET_ACCESS_KEY
+      wal:
+        compression: gzip
+      data:
+        compression: gzip
+        jobs: 2
+    retentionPolicy: "30d"
+
+  monitoring:
+    enablePodMonitor: true

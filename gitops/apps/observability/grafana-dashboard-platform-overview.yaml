@@ -1,0 +1,172 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-freshcloud-platform-overview
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+  labels:
+    grafana_dashboard: "1"
+data:
+  freshcloud-platform-overview.json: |
+    {
+      "title": "FreshCloud Platform Overview",
+      "uid": "freshcloud-platform-overview",
+      "schemaVersion": 39,
+      "version": 1,
+      "editable": true,
+      "refresh": "30s",
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "tags": ["freshcloud", "mvp", "platform"],
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Kubernetes API Up",
+          "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+          "targets": [
+            {
+              "expr": "sum(up{job=~\".*apiserver.*\"})",
+              "legendFormat": "api",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "red", "value": null},
+                  {"color": "green", "value": 1}
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Ready Nodes",
+          "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+          "targets": [
+            {
+              "expr": "sum(kube_node_status_condition{condition=\"Ready\",status=\"true\"})",
+              "legendFormat": "ready",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Nodes In DiskPressure",
+          "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+          "targets": [
+            {
+              "expr": "sum(kube_node_status_condition{condition=\"DiskPressure\",status=\"true\"})",
+              "legendFormat": "disk-pressure",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Core Pods Not Running",
+          "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+          "targets": [
+            {
+              "expr": "sum(kube_pod_status_phase{namespace=~\"kube-system|argocd|observability|ingress-nginx\",phase!~\"Running|Succeeded\"})",
+              "legendFormat": "not-running",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "stat",
+          "title": "Certificates Expiring < 7d",
+          "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+          "targets": [
+            {
+              "expr": "count((certmanager_certificate_expiration_timestamp_seconds - time()) < 604800)",
+              "legendFormat": "expiring",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "type": "stat",
+          "title": "Backup Job Failures (24h)",
+          "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+          "targets": [
+            {
+              "expr": "sum(increase(kube_job_status_failed{job_name=~\".*(backup|restore|snapshot|wal).*\"}[24h]))",
+              "legendFormat": "failures",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "type": "timeseries",
+          "title": "Node CPU Usage (cores)",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+          "targets": [
+            {
+              "expr": "sum(rate(node_cpu_seconds_total{mode!=\"idle\"}[5m])) by (instance)",
+              "legendFormat": "{{instance}}",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "type": "timeseries",
+          "title": "Node Memory Pressure",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+          "targets": [
+            {
+              "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+              "legendFormat": "{{instance}}",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent"
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 9,
+          "type": "table",
+          "title": "Core Service Pod Restarts",
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+          "targets": [
+            {
+              "expr": "topk(20, increase(kube_pod_container_status_restarts_total{namespace=~\"kube-system|argocd|observability|ingress-nginx\"}[6h]))",
+              "format": "table",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "showHeader": true,
+            "sortBy": [
+              {
+                "displayName": "Value",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
+    }

@@ -1,0 +1,204 @@
+---
+- name: Prepare operating systems for RKE2
+  hosts: rke2_servers
+  become: true
+  gather_facts: true
+  vars:
+    os_packages:
+      Debian:
+        - curl
+        - jq
+        - open-iscsi
+        - nfs-common
+        - socat
+        - conntrack
+        - iptables
+        - arptables
+        - ebtables
+      RedHat:
+        - curl
+        - jq
+        - iscsi-initiator-utils
+        - nfs-utils
+        - socat
+        - conntrack-tools
+        - iptables
+        - ebtables
+
+  tasks:
+    - name: Disable swap immediately
+      ansible.builtin.command: swapoff -a
+      when: ansible_swaptotal_mb | int > 0
+      changed_when: true
+
+    - name: Disable swap in fstab
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^(?!#)(.+\sswap\s+.+)$'
+        replace: '# \1'
+
+    - name: Load required kernel modules
+      ansible.builtin.command: "modprobe {{ item }}"
+      changed_when: false
+      loop:
+        - overlay
+        - br_netfilter
+
+    - name: Persist required kernel modules
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/rke2.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          overlay
+          br_netfilter
+
+    - name: Configure sysctl for Kubernetes networking
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/90-rke2.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          net.bridge.bridge-nf-call-iptables = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward = 1
+
+    - name: Apply sysctl values
+      ansible.builtin.command: sysctl --system
+      changed_when: false
+
+    - name: Install prerequisite packages on Debian-family systems
+      ansible.builtin.apt:
+        name: "{{ os_packages['Debian'] }}"
+        state: present
+        update_cache: true
+      when: ansible_os_family == "Debian"
+
+    - name: Install prerequisite packages on RedHat-family systems
+      ansible.builtin.dnf:
+        name: "{{ os_packages['RedHat'] }}"
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Collect service facts
+      ansible.builtin.service_facts:
+
+    - name: Enable iSCSI services when present
+      ansible.builtin.service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - iscsid
+        - open-iscsi
+      when: (item + '.service') in ansible_facts.services
+
+- name: Install and start RKE2 server nodes
+  hosts: rke2_servers
+  become: true
+  gather_facts: true
+  serial: 1
+  vars:
+    cluster_name: "{{ lookup('env', 'CLUSTER_NAME') | default('freshcloud-mvp', true) }}"
+    rke2_token: "{{ lookup('env', 'RKE2_TOKEN') | default('', true) }}"
+    rke2_channel: "{{ lookup('env', 'RKE2_CHANNEL') | default('stable', true) }}"
+    rke2_cni: "{{ lookup('env', 'RKE2_CNI') | default('canal', true) }}"
+    rke2_api_host: "{{ lookup('env', 'RKE2_API_HOST') | default('', true) }}"
+    rke2_tls_sans_raw: "{{ lookup('env', 'RKE2_TLS_SANS') | default('', true) }}"
+    rke2_cluster_cidr: "{{ lookup('env', 'RKE2_CLUSTER_CIDR') | default('10.42.0.0/16', true) }}"
+    rke2_service_cidr: "{{ lookup('env', 'RKE2_SERVICE_CIDR') | default('10.43.0.0/16', true) }}"
+    rke2_disable_components:
+      - rke2-ingress-nginx
+    rke2_node_labels_default:
+      - "freshcloud.io/cluster={{ cluster_name }}"
+
+  pre_tasks:
+    - name: Ensure RKE2 token is provided
+      ansible.builtin.assert:
+        that:
+          - rke2_token | length > 0
+        fail_msg: "RKE2_TOKEN is required. Set it in scripts/bootstrap/bootstrap.env."
+
+    - name: Build TLS SAN list
+      ansible.builtin.set_fact:
+        rke2_tls_sans_list: >-
+          {{
+            ((rke2_api_host | length > 0) | ternary([rke2_api_host], []))
+            + (rke2_tls_sans_raw.split(',') | map('trim') | reject('equalto', '') | list)
+          }}
+
+  tasks:
+    - name: Create RKE2 config directory
+      ansible.builtin.file:
+        path: /etc/rancher/rke2
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Render RKE2 server config
+      ansible.builtin.template:
+        src: templates/rke2-server-config.yaml.j2
+        dest: /etc/rancher/rke2/config.yaml
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Install RKE2 server binary
+      ansible.builtin.shell: |
+        set -o pipefail
+        curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE=server INSTALL_RKE2_CHANNEL="{{ rke2_channel }}" sh -
+      args:
+        executable: /bin/bash
+        creates: /usr/local/bin/rke2
+
+    - name: Enable and start rke2-server service
+      ansible.builtin.service:
+        name: rke2-server
+        enabled: true
+        state: started
+
+    - name: Wait for registration port on primary server
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[groups['rke2_servers'][0]].ansible_host }}"
+        port: 9345
+        delay: 5
+        timeout: 300
+      delegate_to: localhost
+      become: false
+
+    - name: Wait for Kubernetes API on primary server
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[groups['rke2_servers'][0]].ansible_host }}"
+        port: 6443
+        delay: 5
+        timeout: 300
+      delegate_to: localhost
+      become: false
+
+- name: Validate server nodes are joined
+  hosts: "{{ groups['rke2_servers'][0] }}"
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Wait for expected server node count
+      ansible.builtin.shell: |
+        set -euo pipefail
+        export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+        count=$(/var/lib/rancher/rke2/bin/kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
+        [ "${count}" -ge "{{ groups['rke2_servers'] | length }}" ]
+      args:
+        executable: /bin/bash
+      register: node_count_check
+      retries: 30
+      delay: 10
+      until: node_count_check.rc == 0
+      changed_when: false
+
+    - name: Show node summary
+      ansible.builtin.command: /var/lib/rancher/rke2/bin/kubectl get nodes -o wide
+      environment:
+        KUBECONFIG: /etc/rancher/rke2/rke2.yaml
+      changed_when: false

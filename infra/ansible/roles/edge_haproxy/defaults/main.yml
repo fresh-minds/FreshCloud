@@ -1,0 +1,22 @@
+edge_lb_enabled: false
+edge_state: BACKUP
+edge_priority: 100
+edge_virtual_router_id: 42
+edge_private_interface: eth1
+edge_vip_public_ip: "REPLACE_ME_INGRESS_VIP"
+edge_keepalived_auth_pass: "REPLACE_ME"
+edge_peer_ips: []
+
+haproxy_backend_nodes:
+  - name: k8s-01
+    address: 10.40.0.10
+    http_port: 30080
+    https_port: 30443
+  - name: k8s-02
+    address: 10.40.0.11
+    http_port: 30080
+    https_port: 30443
+  - name: k8s-03
+    address: 10.40.0.12
+    http_port: 30080
+    https_port: 30443

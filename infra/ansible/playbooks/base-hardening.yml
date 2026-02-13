@@ -1,0 +1,5 @@
+- name: Apply base host hardening
+  hosts: all
+  become: true
+  roles:
+    - role: common_hardening
