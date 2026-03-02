@@ -1,5 +1,7 @@
 # FreshCloud
 
+![CE0D323F-3876-4713-BC21-B4B398117155_1_105_c](https://github.com/user-attachments/assets/66e90e8b-04ee-406f-a03d-cf3928644348)
+
 FreshCloud is an automation-first repository for building a Kubernetes-first "sovereign AI cloud" MVP on Leaseweb.
 
 It combines:
